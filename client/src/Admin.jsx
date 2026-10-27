@@ -1,18 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
-const KEY = 'tanuki-admin-auth';
 const fmt = (d) => new Date(d).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' });
 
-function useApi(auth, onUnauthorized) {
+// La sesión es una cookie HttpOnly que pone el servidor: aquí no se guarda ni se lee ninguna credencial.
+function useApi(onUnauthorized) {
   return useCallback(
     async (path, opts = {}) => {
       const res = await fetch(`/api/admin${path}`, {
         ...opts,
-        headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), Authorization: `Basic ${auth}` },
+        headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), 'X-Requested-With': 'tanuki' },
       });
       if (res.status === 401) {
         onUnauthorized();
-        throw new Error('Usuario o contraseña incorrectos.');
+        throw new Error('Tu sesión terminó. Entra de nuevo.');
       }
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -20,27 +20,25 @@ function useApi(auth, onUnauthorized) {
       }
       return res;
     },
-    [auth, onUnauthorized]
+    [onUnauthorized]
   );
 }
 
 export default function Admin() {
-  const [auth, setAuth] = useState(() => {
-    try {
-      return sessionStorage.getItem(KEY) || '';
-    } catch {
-      return '';
-    }
-  });
+  const [authed, setAuthed] = useState(null); // null: comprobando si ya hay sesión
+  useEffect(() => {
+    fetch('/api/admin/me', { headers: { 'X-Requested-With': 'tanuki' } })
+      .then((r) => setAuthed(r.ok))
+      .catch(() => setAuthed(false));
+  }, []);
   const logout = useCallback(() => {
-    try {
-      sessionStorage.removeItem(KEY);
-    } catch {}
-    setAuth('');
+    fetch('/api/admin/logout', { method: 'POST', headers: { 'X-Requested-With': 'tanuki' } }).catch(() => {});
+    setAuthed(false);
   }, []);
 
-  if (!auth) return <Login onLogin={setAuth} />;
-  return <Panel auth={auth} logout={logout} />;
+  if (authed === null) return null;
+  if (!authed) return <Login onLogin={() => setAuthed(true)} />;
+  return <Panel logout={logout} />;
 }
 
 function Login({ onLogin }) {
@@ -53,14 +51,15 @@ function Login({ onLogin }) {
     ev.preventDefault();
     setBusy(true);
     setError('');
-    const token = btoa(unescape(encodeURIComponent(`${user}:${pass}`)));
     try {
-      const res = await fetch('/api/admin/me', { headers: { Authorization: `Basic ${token}` } });
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'tanuki' },
+        body: JSON.stringify({ user, pass }),
+      });
       if (res.ok) {
-        try {
-          sessionStorage.setItem(KEY, token);
-        } catch {}
-        onLogin(token);
+        setPass('');
+        onLogin();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || 'No pudimos entrar.');
@@ -89,8 +88,8 @@ function Login({ onLogin }) {
   );
 }
 
-function Panel({ auth, logout }) {
-  const api = useApi(auth, logout);
+function Panel({ logout }) {
+  const api = useApi(logout);
   const [summary, setSummary] = useState(null);
   const [signups, setSignups] = useState([]);
   const [error, setError] = useState('');
@@ -138,7 +137,7 @@ function Panel({ auth, logout }) {
 
       {summary && (
         <>
-          <p className="total"><strong>{summary.total}</strong> personas inscritas</p>
+          <p className="total"><strong>{summary.total}</strong> inscripciones</p>
           <BooksAdmin api={api} summary={summary} reload={load} />
         </>
       )}
@@ -256,7 +255,7 @@ function BooksAdmin({ api, summary, reload }) {
           </div>
           <div className="field">
             <label htmlFor="bc">Portada (dirección de la imagen)</label>
-            <input id="bc" value={editing.cover} onChange={(e) => setEditing({ ...editing, cover: e.target.value })} placeholder="/covers/mi-libro.webp o https://…" />
+            <input id="bc" value={editing.cover} onChange={(e) => setEditing({ ...editing, cover: e.target.value })} placeholder="/covers/mi-libro.webp" />
           </div>
           <div className="field">
             <label htmlFor="bcol">Color del libro</label>
