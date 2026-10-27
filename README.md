@@ -44,6 +44,17 @@ Las portadas están en `client/public/covers` (WebP de 360 px). Para un libro nu
 
 El mismo servidor entrega la API y el formulario ya compilado (`client/dist`).
 
+### Desplegar en Vercel
+
+Hay que desplegar **la raíz del repositorio**, no la carpeta `client`. Si solo subes `client`, la página carga pero `/api/*` da 404, porque la API no está ahí.
+
+1. En Vercel, importa el repositorio. En *Root Directory* deja la raíz (donde está `package.json` y `vercel.json`). El framework puede quedar en "Other".
+2. En *Settings → Environment Variables* define: `MONGODB_URI`, `ADMIN_USER`, `ADMIN_PASSWORD`, `TERMS_URL`, `PRIVACY_URL`, `AUTH_TEXT_VERSION`, `SITE_URL` y `TRUST_PROXY=1`. No definas `DNS_SERVERS`.
+3. En MongoDB Atlas, *Network Access*: Vercel no tiene IP fija, así que hay que permitir `0.0.0.0/0` (el acceso sigue protegido por usuario y contraseña).
+4. Despliega. `vercel.json` ya sirve `client/dist` y envía `/api/*` a `api/index.js`.
+
+Nota: en Vercel el límite de envíos por IP funciona por instancia, así que es una protección básica, no estricta.
+
 ## Código QR
 
 ```bash
