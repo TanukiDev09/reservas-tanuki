@@ -1,13 +1,13 @@
 import express from 'express';
 import helmet from 'helmet';
-import compression from 'compression';
+import mongoose from 'mongoose';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
-import { initStore } from './db.js';
+import { Book } from './models/Book.js';
+import { Signup } from './models/Signup.js';
 import { seedBooks } from './booksSeed.js';
-import { booksCache } from './cache.js';
 import publicRoutes from './routes/public.js';
 import adminRoutes from './routes/admin.js';
 
@@ -15,9 +15,11 @@ import adminRoutes from './routes/admin.js';
 let ready;
 export function connectDb() {
   ready ??= (async () => {
-    const repo = await initStore();
-    // Base vacía: se siembran los libros. En serverless no se revisa en cada arranque (usa npm run seed).
-    if (!process.env.VERCEL && !(await repo.listBooks()).length) await seedBooks(repo);
+    await mongoose.connect(config.mongoUri);
+    if ((await Book.estimatedDocumentCount()) === 0) {
+      console.log(`Base vacía: sembrando libros (${await seedBooks()}).`);
+    }
+    await Promise.all([Book.init(), Signup.init()]);
   })().catch((e) => {
     ready = undefined; // permite reintentar en la próxima petición
     throw e;
@@ -30,18 +32,10 @@ const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../clie
 
 if (config.trustProxy) app.set('trust proxy', config.trustProxy);
 app.disable('x-powered-by');
-app.use(compression());
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '20kb' }));
 
-// Atajo sin base de datos: la lista de libros en caché se responde al instante.
-app.get('/api/books', (_req, res, next) => {
-  const cached = booksCache.get();
-  if (!cached) return next();
-  res.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=600').json(cached);
-});
-// /api/config no necesita la base: no se espera la conexión para responderlo.
-app.use('/api', (req, _res, next) => (req.path === '/config' ? next() : connectDb().then(() => next(), next)));
+app.use('/api', (_req, _res, next) => connectDb().then(() => next(), next));
 app.use('/api/admin', adminRoutes);
 app.use('/api', publicRoutes);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'No encontrado.' }));
