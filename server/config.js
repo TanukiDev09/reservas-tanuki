@@ -1,6 +1,11 @@
 import 'dotenv/config';
+import dns from 'node:dns';
 
 const env = process.env;
+
+// Algunas redes o PCs no resuelven los registros SRV de mongodb+srv://. Con DNS_SERVERS
+// (ej. 8.8.8.8,1.1.1.1) Node usa esos servidores para resolverlos.
+if (env.DNS_SERVERS) dns.setServers(env.DNS_SERVERS.split(',').map((s) => s.trim()).filter(Boolean));
 
 export const config = {
   port: Number(env.PORT) || 3000,
