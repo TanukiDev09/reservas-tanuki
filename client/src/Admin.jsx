@@ -134,6 +134,8 @@ function Panel({ auth, logout }) {
       </div>
       {error && <p className="error" role="alert">{error}</p>}
 
+      <PublishBox api={api} />
+
       {summary && (
         <>
           <p className="total"><strong>{summary.total}</strong> personas inscritas</p>
@@ -164,6 +166,53 @@ function Panel({ auth, logout }) {
         </table>
       </div>
     </div>
+  );
+}
+
+// Publicar: recompila el sitio (Vercel) para fijar en la página la lista de libros incrustada en el HTML.
+function PublishBox({ api }) {
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    api('/publish').then((r) => r.json()).then((d) => setEnabled(d.enabled)).catch(() => {});
+  }, [api]);
+
+  async function publish() {
+    setBusy(true);
+    setError('');
+    setNote('');
+    try {
+      await api('/publish', { method: 'POST' });
+      setNote('Publicando… los cambios de libros estarán fijos en la página en aproximadamente un minuto.');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!enabled) return null;
+
+  return (
+    <section className="publish card" aria-labelledby="publish-title">
+      <div className="publish-head">
+        <div>
+          <h2 id="publish-title">Publicar cambios</h2>
+          <p className="muted">
+            Los libros van incrustados en la página para que cargue al instante. Los cambios que hagas aquí se ven en el
+            formulario en cerca de un minuto; pulsa Publicar para dejarlos fijos.
+          </p>
+        </div>
+        <button className="btn btn-outline" onClick={publish} disabled={busy}>
+          {busy ? 'Publicando…' : 'Publicar cambios'}
+        </button>
+      </div>
+      {error && <p className="error" role="alert">{error}</p>}
+      {note && <p className="publish-note" role="status">{note}</p>}
+    </section>
   );
 }
 

@@ -10,6 +10,8 @@ if (env.DNS_SERVERS) dns.setServers(env.DNS_SERVERS.split(',').map((s) => s.trim
 export const config = {
   port: Number(env.PORT) || 3000,
   mongoUri: env.MONGODB_URI || 'mongodb://127.0.0.1:27017/avisos-tanuki',
+  // Vercel > Settings > Git > Deploy Hooks: al llamarlo se recompila y se refresca la lista de libros incrustada.
+  deployHook: env.VERCEL_DEPLOY_HOOK_URL || '',
   siteUrl: env.SITE_URL || '',
   adminUser: env.ADMIN_USER || '',
   adminPassword: env.ADMIN_PASSWORD || '',

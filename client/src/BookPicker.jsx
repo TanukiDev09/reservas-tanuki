@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -16,6 +16,49 @@ export const styleOf = (b) => {
   const color = /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#52196f';
   return { '--c': color, '--on': readableOn(color) };
 };
+
+// Portada con carga a demanda: solo se descarga cuando está cerca de la pantalla. Con red lenta el
+// "lazy" nativo del navegador adelanta hasta 2500 px y baja casi todas las portadas de entrada.
+function Cover({ src, eager, priority }) {
+  const box = useRef(null);
+  const [show, setShow] = useState(eager);
+
+  useEffect(() => {
+    if (show) return undefined;
+    if (!('IntersectionObserver' in window)) {
+      setShow(true);
+      return undefined;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShow(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '300px 200px 300px 200px' }
+    );
+    io.observe(box.current);
+    return () => io.disconnect();
+  }, [show]);
+
+  return (
+    <span ref={box} className="cover-fill">
+      {show && (
+        <img
+          src={src}
+          alt=""
+          draggable="false"
+          width="180"
+          height="252"
+          fetchPriority={priority ? 'high' : undefined}
+          decoding="async"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+      )}
+    </span>
+  );
+}
 
 const Arrow = ({ dir }) => (
   <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -123,24 +166,14 @@ export default function BookPicker({ books, selected, onToggle, error, loadError
                 </>
               )}
               <ul className="track" ref={track} onPointerDown={onPointerDown} onClickCapture={onClickCapture}>
-                {visible.map((b) => {
+                {visible.map((b, i) => {
                   const on = selected.includes(b._id);
                   return (
                     <li key={b._id}>
                       <label className={`book${on ? ' on' : ''}`} style={styleOf(b)}>
                         <input type="checkbox" className="sr" checked={on} onChange={(e) => onToggle(b._id, e.target.checked)} />
                         <span className="cover">
-                          {b.cover && (
-                            <img
-                              src={b.cover}
-                              alt=""
-                              draggable="false"
-                              width="180"
-                              height="252"
-                              loading="lazy"
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
-                          )}
+                          {b.cover && <Cover src={b.cover} eager={i < 3} priority={i < 2} />}
                           <span className="tick" aria-hidden="true">
                             <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                           </span>
