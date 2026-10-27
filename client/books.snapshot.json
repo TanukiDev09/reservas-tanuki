@@ -1,0 +1,86 @@
+{
+ "generatedAt": "2026-10-27T16:36:17.979Z",
+ "config": {
+  "termsUrl": "https://tanukilibros.com/terminos-de-uso/",
+  "privacyUrl": "https://tanukilibros.com/privacy-policy/"
+ },
+ "books": [
+  {
+   "_id": "6ae0c2b2dc4d97d79a35db9b",
+   "title": "El desfile nocturno de cientos de demonios",
+   "author": "Sekien Toriyama",
+   "cover": "/covers/desfile-nocturno.webp",
+   "color": "#7ea98e"
+  },
+  {
+   "_id": "6ae0c2b2dc4d97d79a35db9c",
+   "title": "El desfile continuo de cientos de demonios: ayer y hoy",
+   "author": "Sekien Toriyama",
+   "cover": "/covers/desfile-continuo.webp",
+   "color": "#395a50"
+  },
+  {
+   "_id": "6ae0c2b2dc4d97d79a35db9d",
+   "title": "Resignación",
+   "author": "Toshiko Tamura",
+   "cover": "/covers/resignacion.webp",
+   "color": "#e75b78"
+  },
+  {
+   "_id": "6ae0c2b2dc4d97d79a35db9e",
+   "title": "Un lápiz labial para una momia",
+   "author": "Toshiko Tamura",
+   "cover": "/covers/lapiz-labial.webp",
+   "color": "#fddc43"
+  },
+  {
+   "_id": "6ae0c2b2dc4d97d79a35db9f",
+   "title": "El tambor encantado",
+   "author": "Kyusaku Yumeno",
+   "cover": "/covers/tambor-encantado.webp",
+   "color": "#5b7028"
+  },
+  {
+   "_id": "6ae0c2b2dc4d97d79a35dba0",
+   "title": "El secreto del alma número diez",
+   "author": "Juza Unno",
+   "cover": "/covers/numero-diez.webp",
+   "color": "#6ed3f1"
+  },
+  {
+   "_id": "6ae0c2b2dc4d97d79a35dba1",
+   "title": "Historia de una vieja geisha",
+   "author": "Kanoko Okamoto",
+   "cover": "/covers/vieja-geisha.webp",
+   "color": "#804694"
+  },
+  {
+   "_id": "6ae0c2b3dc4d97d79a35dba2",
+   "title": "El hombre que dejó de respirar",
+   "author": "Ikujiro Ran",
+   "cover": "/covers/hombre-respirar.webp",
+   "color": "#ad3070"
+  },
+  {
+   "_id": "6ae0c2b3dc4d97d79a35dba3",
+   "title": "El huevo",
+   "author": "Kyusaku Yumeno",
+   "cover": "/covers/el-huevo.webp",
+   "color": "#113d6a"
+  },
+  {
+   "_id": "6ae0c2b3dc4d97d79a35dba4",
+   "title": "Sobre el horror",
+   "author": "Juza Unno",
+   "cover": "/covers/sobre-el-horror.webp",
+   "color": "#eb1f20"
+  },
+  {
+   "_id": "6ae0c2b3dc4d97d79a35dba5",
+   "title": "Indigno de ser humano",
+   "author": "Osamu Dazai",
+   "cover": "/covers/indigno.webp",
+   "color": "#ac1c1c"
+  }
+ ]
+}

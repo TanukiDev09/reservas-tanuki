@@ -3,8 +3,8 @@ import crypto from 'node:crypto';
 import mongoose from 'mongoose';
 import rateLimit from 'express-rate-limit';
 import { config } from '../config.js';
-import { Book } from '../models/Book.js';
-import { Signup } from '../models/Signup.js';
+import { getRepo } from '../db.js';
+import { booksCache } from '../cache.js';
 
 const router = Router();
 
@@ -43,18 +43,27 @@ router.use(authLimiter, requireAdmin);
 
 router.get('/me', (_req, res) => res.json({ ok: true }));
 
+// Publicar: recompila el sitio (Vercel) para refrescar la lista de libros incrustada en el HTML.
+router.get('/publish', (_req, res) => res.json({ enabled: Boolean(config.deployHook) }));
+
+router.post('/publish', async (_req, res, next) => {
+  try {
+    if (!config.deployHook) return res.status(400).json({ error: 'Falta VERCEL_DEPLOY_HOOK_URL.' });
+    const r = await fetch(config.deployHook, { method: 'POST', signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return res.status(502).json({ error: `Vercel respondió ${r.status}.` });
+    res.json({ ok: true, at: new Date() });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Resumen: total de inscritos y conteo por libro (todos los libros, también inactivos).
 router.get('/summary', async (_req, res, next) => {
   try {
-    const [total, counts, books] = await Promise.all([
-      Signup.countDocuments(),
-      Signup.aggregate([{ $unwind: '$books' }, { $group: { _id: '$books', count: { $sum: 1 } } }]),
-      Book.find().sort({ order: 1, title: 1 }),
-    ]);
-    const byId = new Map(counts.map((c) => [String(c._id), c.count]));
+    const { total, books } = await getRepo().summary();
     res.json({
       total,
-      books: books.map((b) => ({ _id: b._id, title: b.title, author: b.author, cover: b.cover, color: b.color, active: b.active, count: byId.get(String(b._id)) || 0 })),
+      books: books.map(({ _id, title, author, cover, color, active, count }) => ({ _id, title, author, cover, color, active, count })),
     });
   } catch (e) {
     next(e);
@@ -63,8 +72,7 @@ router.get('/summary', async (_req, res, next) => {
 
 router.get('/signups', async (_req, res, next) => {
   try {
-    const signups = await Signup.find().sort({ updatedAt: -1 }).populate('books', 'title');
-    res.json(signups);
+    res.json(await getRepo().listSignups());
   } catch (e) {
     next(e);
   }
@@ -79,7 +87,7 @@ const csvCell = (v) => {
 
 router.get('/export.csv', async (_req, res, next) => {
   try {
-    const signups = await Signup.find().sort({ createdAt: 1 }).populate('books', 'title');
+    const signups = (await getRepo().listSignups()).sort((a, b) => a.createdAt - b.createdAt);
     const head = [
       'Fecha de inscripción', 'Última actualización', 'Nombre', 'Ciudad', 'Correo', 'Teléfono',
       'Libros', 'Aceptó términos', 'Autorizó datos', 'Versión del texto', 'Fecha de autorización',
@@ -108,9 +116,9 @@ router.get('/export.csv', async (_req, res, next) => {
 
 const bookFields = (body) => {
   const out = {};
-  if (typeof body.title === 'string') out.title = body.title.trim();
-  if (typeof body.author === 'string') out.author = body.author.trim();
-  if (typeof body.cover === 'string') out.cover = body.cover.trim();
+  if (typeof body.title === 'string') out.title = body.title.trim().slice(0, 200);
+  if (typeof body.author === 'string') out.author = body.author.trim().slice(0, 120);
+  if (typeof body.cover === 'string') out.cover = body.cover.trim().slice(0, 500);
   if (typeof body.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(body.color.trim())) out.color = body.color.trim();
   if (typeof body.active === 'boolean') out.active = body.active;
   if (body.order !== undefined && Number.isFinite(Number(body.order))) out.order = Number(body.order);
@@ -122,12 +130,13 @@ router.post('/books', async (req, res, next) => {
     const data = bookFields(req.body || {});
     if (!data.title) return res.status(400).json({ error: 'El título es obligatorio.' });
     if (data.order === undefined) {
-      const last = await Book.findOne().sort({ order: -1 }).select('order');
-      data.order = (last?.order || 0) + 10;
+      data.order = (await getRepo().lastBookOrder()) + 10;
     }
-    res.status(201).json(await Book.create(data));
+    const created = await getRepo().createBook(data);
+    booksCache.clear();
+    res.status(201).json(created);
   } catch (e) {
-    if (e?.code === 11000) return res.status(409).json({ error: 'Ya existe un libro con ese título.' });
+    if (e?.code === 'DUPLICATE') return res.status(409).json({ error: 'Ya existe un libro con ese título.' });
     next(e);
   }
 });
@@ -137,11 +146,12 @@ router.patch('/books/:id', async (req, res, next) => {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'No encontrado.' });
     const data = bookFields(req.body || {});
     if ('title' in data && !data.title) return res.status(400).json({ error: 'El título es obligatorio.' });
-    const book = await Book.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true });
+    const book = await getRepo().updateBook(req.params.id, data);
     if (!book) return res.status(404).json({ error: 'No encontrado.' });
+    booksCache.clear();
     res.json(book);
   } catch (e) {
-    if (e?.code === 11000) return res.status(409).json({ error: 'Ya existe un libro con ese título.' });
+    if (e?.code === 'DUPLICATE') return res.status(409).json({ error: 'Ya existe un libro con ese título.' });
     next(e);
   }
 });

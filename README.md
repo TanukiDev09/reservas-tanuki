@@ -32,6 +32,8 @@ Las portadas están en `client/public/covers` (WebP de 360 px). Para un libro nu
 | `TERMS_URL`, `PRIVACY_URL` | Enlaces de las dos casillas del formulario |
 | `AUTH_TEXT_VERSION` | Versión del texto de autorización. Cámbiala cuando modifiques ese texto; se guarda con cada inscripción junto con la fecha |
 | `RATE_LIMIT_MAX`, `RATE_LIMIT_WINDOW_MIN` | Límite de envíos por IP (8 por 60 min por defecto) |
+| `VERCEL_DEPLOY_HOOK_URL` | Hook de Vercel para el botón **Publicar cambios** de `/admin` (opcional) |
+| `DNS_SERVERS` | DNS alterno si tu red no resuelve `mongodb+srv://` (ej. `8.8.8.8,1.1.1.1`) |
 | `TRUST_PROXY` | `1` si el hosting usa proxy (casi siempre), para leer la IP real |
 
 ## Desplegar en un hosting Node con MongoDB

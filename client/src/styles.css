@@ -127,15 +127,7 @@ th { background: var(--soft); color: var(--purple); position: sticky; top: 0; }
 /* Selector de libros */
 .sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .picker legend { font-size: 1.05rem; }
-.hint { margin: 0 0 .75rem; color: var(--muted); font-size: .9rem; }
 .search input { width: 100%; font: inherit; font-size: 1rem; padding: .8rem .9rem; border: 1.5px solid #8d8d95; border-radius: var(--radius); background: #fff; }
-.picked { margin: .75rem 0; font-size: .9rem; min-height: 1.5rem; }
-.picked-count { font-weight: 700; color: var(--purple); display: block; margin-bottom: .4rem; }
-.chips { list-style: none; margin: 0 0 .25rem; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
-.chip { display: inline-flex; align-items: center; gap: .4rem; max-width: 100%; font: inherit; font-size: .8rem; font-weight: 600; padding: .35rem .65rem; border-radius: 999px; border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 14%, #fff); color: var(--text); cursor: pointer; }
-.chip:hover { background: color-mix(in srgb, var(--c) 28%, #fff); }
-.chip-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dot { width: .7rem; height: .7rem; border-radius: 50%; background: var(--c); flex: none; }
 .link-btn { background: none; border: 0; padding: .25rem 0; font: inherit; font-size: .85rem; color: var(--purple); text-decoration: underline; cursor: pointer; }
 .empty { text-align: center; padding: 1rem 0; }
 
@@ -183,8 +175,6 @@ h1:focus { outline: none; }
   scroll-snap-type: x proximity; scroll-padding-inline: 1rem; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
 }
 .books-view.v-swipe .track > li { flex: 0 0 min(44vw, 190px); scroll-snap-align: start; }
-.books-view.v-grid .track { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; padding: .35rem 0; }
-@media (min-width: 480px) { .books-view.v-grid .track { grid-template-columns: repeat(3, 1fr); } }
 
 .nav { display: none; position: absolute; top: 34%; z-index: 2; width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 2px solid var(--purple); background: #fff; color: var(--purple); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.2); place-items: center; }
 .nav:hover { background: var(--purple); color: #fff; }
@@ -213,7 +203,7 @@ h1:focus { outline: none; }
 
 /* Corrección de "Ver todos": ancho completo y columnas parejas */
 .picker { width: 100%; }
-.books-view.v-grid .track { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem .75rem; }
+.books-view.v-grid .track { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem .75rem; padding: .35rem 0; }
 @media (min-width: 480px) { .books-view.v-grid .track { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .books-view.v-grid .meta .book-title { font-size: .85rem; }
 
@@ -222,3 +212,13 @@ h1:focus { outline: none; }
 .books-view.v-swipe .track img { -webkit-user-drag: none; user-select: none; }
 .track.dragging { cursor: grabbing; scroll-snap-type: none !important; user-select: none; }
 .track.dragging .book { pointer-events: none; }
+
+/* Admin: publicar cambios */
+.publish { margin: 1rem 0; }
+.publish h2 { margin-bottom: .25rem; }
+.publish-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; }
+.publish-head p { margin: 0; max-width: 52ch; font-size: .9rem; }
+.publish-head .btn { width: auto; padding: .6rem 1rem; font-size: .9rem; }
+.publish-note { margin: .75rem 0 0; font-size: .85rem; }
+
+.cover-fill { display: block; width: 100%; height: 100%; }

@@ -1,5 +1,3 @@
-import { Book } from './models/Book.js';
-
 // Autor, portada (client/public/covers) y color de acento tomados de tanukilibros.com.
 export const initialBooks = [
   ['El desfile nocturno de cientos de demonios', 'Sekien Toriyama', '/covers/desfile-nocturno.webp', '#7ea98e'],
@@ -17,22 +15,21 @@ export const initialBooks = [
 
 // Inserta los títulos que faltan y completa autor, portada y color solo si están vacíos
 // (o en el color por defecto); nunca pisa ediciones hechas desde /admin.
-export async function seedBooks() {
+export async function seedBooks(repo) {
+  const existing = new Map((await repo.listBooks()).map((b) => [b.title, b]));
   let created = 0;
   for (const [i, [title, author, cover, color]] of initialBooks.entries()) {
-    const res = await Book.updateOne(
-      { title },
-      { $setOnInsert: { title, author, cover, color, active: true, order: (i + 1) * 10 } },
-      { upsert: true }
-    );
-    if (res.upsertedCount) {
+    const book = existing.get(title);
+    if (!book) {
+      await repo.createBook({ title, author, cover, color, active: true, order: (i + 1) * 10 });
       created += 1;
       continue;
     }
-    const unset = (field, ...empty) => ({ title, $or: [{ [field]: { $exists: false } }, { [field]: { $in: empty } }] });
-    await Book.updateOne(unset('author', ''), { $set: { author } });
-    await Book.updateOne(unset('cover', ''), { $set: { cover } });
-    await Book.updateOne(unset('color', '', '#52196f'), { $set: { color } });
+    const patch = {};
+    if (!book.author) patch.author = author;
+    if (!book.cover) patch.cover = cover;
+    if (!book.color || book.color === '#52196f') patch.color = color;
+    if (Object.keys(patch).length) await repo.updateBook(book._id, patch);
   }
   return created;
 }
