@@ -57,6 +57,15 @@ Hay que desplegar **la raíz del repositorio**, no la carpeta `client`. Si solo 
 
 Nota: en Vercel el límite de envíos por IP funciona por instancia, así que es una protección básica, no estricta.
 
+#### Por qué carga tan rápido (Vercel)
+
+- **Los libros van dentro del HTML.** En cada build, `npm run snapshot` lee los libros activos de Atlas y los incrusta en la página (`client/books.snapshot.json`). El formulario se pinta al instante, sin llamar a ninguna función ni a la base de datos. Si Atlas no responde durante el build, se usa la copia anterior y el build no falla.
+- **Se actualiza en segundo plano.** Tras pintar, la página pide `/api/books` (con caché de 1 min en el CDN). Eso también deja lista la función y la conexión a Atlas para cuando la persona envíe el formulario.
+- **Para fijar cambios de libros en la página:** en `/admin` pulsa **Publicar cambios**. Requiere `VERCEL_DEPLOY_HOOK_URL` (Vercel → Settings → Git → Deploy Hooks → crear uno para esta rama).
+- **Redes flojas:** las portadas se bajan a medida que se acercan a la pantalla, y el envío reintenta hasta 3 veces con tiempo límite (no duplica contactos).
+- **Mide antes de decidir:** con Lighthouse en 4G lenta simulada, el contenido principal aparece en ~2,5 s y con buena conexión en ~0,5 s (216 KB transferidos).
+- **Región:** en Vercel → Settings → Functions, elige la región más cercana a tu clúster de Atlas.
+
 ## Código QR
 
 ```bash
