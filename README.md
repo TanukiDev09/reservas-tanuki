@@ -84,6 +84,7 @@ Genera `qr-avisos-tanuki.png`. Si cambia la URL, cambia `SITE_URL` y vuelve a co
 
 ## Notas
 
-- Si el correo ya existe, se actualizan los datos, se suman los libros nuevos y se renueva la autorización.
+- Cada envío del formulario crea una inscripción nueva (no se deduplica por correo). Un identificador por envío evita duplicados por reintentos con señal floja.
+- Si vienes de la versión con índice único de correo, corre una vez `npm run drop-email-index` con el `MONGODB_URI` de producción.
 - Antispam: campo trampa oculto y límite de envíos por IP.
 - `/admin` se protege con usuario y contraseña de `.env`. Úsalo siempre con HTTPS.

@@ -19,7 +19,7 @@ const ORDER = ['name', 'city', 'email', 'phone', 'termsAccepted', 'dataAuthorize
 const plural = (n) => (n === 1 ? '1 libro elegido' : `${n} libros elegidos`);
 
 // Con señal floja el envío puede tardar o cortarse: se reintenta hasta 3 veces con tiempo límite.
-// Es seguro repetirlo: el servidor identifica a la persona por su correo y no duplica nada.
+// Es seguro repetirlo: cada envío lleva un identificador y el servidor no guarda dos veces el mismo.
 async function postWithRetry(body, onRetry) {
   const waits = [12000, 20000, 30000];
   let lastError;
@@ -59,6 +59,7 @@ export default function SignupForm() {
   const [sentEmail, setSentEmail] = useState('');
   const [loadError, setLoadError] = useState(false);
   const [formError, setFormError] = useState('');
+  const tokenRef = useRef(null); // token antispam del servidor (hora de carga del formulario)
   const doneRef = useRef(null);
   const headingRef = useRef(null);
   const firstRender = useRef(true);
@@ -77,6 +78,12 @@ export default function SignupForm() {
         .catch(() => alive && !books && setLoadError(true));
     const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 300));
     idle(refresh);
+    fetch('/api/form-token')
+      .then((r) => r.json())
+      .then((d) => {
+        tokenRef.current = d.token;
+      })
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -136,7 +143,11 @@ export default function SignupForm() {
 
     setSending(true);
     try {
-      const { res, data } = await postWithRetry(JSON.stringify(f), setRetrying);
+      const submissionId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      if (!tokenRef.current) {
+        tokenRef.current = await fetch('/api/form-token').then((r) => r.json()).then((d) => d.token).catch(() => null);
+      }
+      const { res, data } = await postWithRetry(JSON.stringify({ ...f, submissionId, formToken: tokenRef.current }), setRetrying);
       if (res.ok) {
         setSentName(f.name.trim().split(/\s+/)[0]);
         setSentEmail(f.email.trim());

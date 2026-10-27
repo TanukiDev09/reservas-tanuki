@@ -15,7 +15,8 @@ const booksSnapshot = () => ({
     }
     // "<" escapado para que ningún texto pueda cerrar la etiqueta <script>.
     const json = JSON.stringify({ books: snap.books, config: snap.config }).replace(/</g, '\\u003c');
-    const tags = [{ tag: 'script', children: `window.__DATA__=${json}`, injectTo: 'head-prepend' }];
+    // Bloque de datos (no se ejecuta), así la política de seguridad no necesita permitir scripts en línea.
+    const tags = [{ tag: 'script', attrs: { type: 'application/json', id: '__DATA__' }, children: json, injectTo: 'head-prepend' }];
     for (const b of snap.books.slice(0, 3)) {
       if (b.cover) tags.push({ tag: 'link', attrs: { rel: 'preload', as: 'image', href: b.cover, fetchpriority: 'high' }, injectTo: 'head' });
     }

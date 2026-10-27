@@ -31,7 +31,33 @@ const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../clie
 if (config.trustProxy) app.set('trust proxy', config.trustProxy);
 app.disable('x-powered-by');
 app.use(compression());
-app.use(helmet({ contentSecurityPolicy: false }));
+// Misma política que vercel.json (allí la aplica Vercel a la página estática). Todo es del propio sitio:
+// ningún script, imagen ni conexión externa. 'unsafe-inline' solo en atributos style (React los usa).
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        styleSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:'],
+        fontSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        manifestSrc: ["'self'"],
+        baseUri: ["'none'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+  })
+);
+app.use((_req, res, next) => {
+  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  next();
+});
 app.use(express.json({ limit: '20kb' }));
 
 // Atajo sin base de datos: la lista de libros en caché se responde al instante.
@@ -54,7 +80,8 @@ if (fs.existsSync(dist)) {
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
-  console.error(err);
+  // Nunca se registra el error completo: los mensajes de MongoDB (p. ej. clave duplicada) incluyen correos y nombres.
+  console.error(`${err?.name || 'Error'}${err?.code ? ` [${err.code}]` : ''}: ${err?.code === 11000 ? 'clave duplicada' : String(err?.message || '').slice(0, 200)}`);
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Solicitud no válida.' });
   res.status(500).json({ error: 'Algo salió mal. Inténtalo de nuevo en un momento.' });
 });

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { bookSchema } from '../models/Book.js';
 import { signupSchema } from '../models/Signup.js';
+import { rateHitSchema } from '../models/RateHit.js';
 
 // Almacén sobre MongoDB: ids siempre como texto, objetos planos.
 
@@ -37,12 +38,13 @@ export async function openMongo(uri, ms = 15000) {
   await conn.asPromise();
   const Book = conn.model('Book', bookSchema);
   const Signup = conn.model('Signup', signupSchema);
+  const RateHit = conn.model('RateHit', rateHitSchema);
   // Los índices se verifican en segundo plano: no se espera por ellos en el arranque en frío.
-  Promise.all([Book.init(), Signup.init()]).catch((e) => console.error('MongoDB índices:', e.message));
-  return mongoRepo(Book, Signup);
+  Promise.all([Book.init(), Signup.init(), RateHit.init()]).catch((e) => console.error('MongoDB índices:', e.message));
+  return mongoRepo(Book, Signup, RateHit);
 }
 
-function mongoRepo(Book, Signup) {
+function mongoRepo(Book, Signup, RateHit) {
   return {
 
     async listBooks({ activeOnly = false } = {}) {
@@ -55,13 +57,38 @@ function mongoRepo(Book, Signup) {
       return rows.map((b) => String(b._id));
     },
 
-    // Si el correo ya existe: actualiza datos, suma libros nuevos y renueva la autorización.
-    async upsertSignup({ name, city, email, phone, bookIds, consent }) {
-      await Signup.updateOne(
-        { email },
-        { $set: { name, city, phone, consent }, $addToSet: { books: { $each: bookIds } }, $setOnInsert: { email } },
-        { upsert: true }
-      );
+    // Cada envío del formulario es una inscripción nueva: no se toca ningún registro existente,
+    // así nadie puede reescribir los datos de otra persona con solo conocer su correo.
+    async createSignup({ name, city, email, phone, bookIds, consent, submissionId }) {
+      await Signup.create({ name, city, email, phone, books: bookIds, consent, ...(submissionId && { submissionId }) });
+    },
+
+    // Contador de ventana fija para el límite de peticiones (compartido entre instancias).
+    async rateHit(key, windowMs) {
+      const now = new Date();
+      const bump = () => RateHit.findOneAndUpdate({ _id: key, expireAt: { $gt: now } }, { $inc: { hits: 1 } }, { new: true }).lean();
+      let doc = await bump();
+      if (!doc) {
+        try {
+          doc = await RateHit.findOneAndUpdate(
+            { _id: key },
+            { $set: { hits: 1, expireAt: new Date(now.getTime() + windowMs) } },
+            { upsert: true, new: true }
+          ).lean();
+        } catch (e) {
+          if (e?.code !== 11000) throw e;
+          doc = await bump(); // otra instancia creó la clave al mismo tiempo
+        }
+      }
+      return { totalHits: doc?.hits ?? 1, resetTime: doc?.expireAt ?? new Date(now.getTime() + windowMs) };
+    },
+
+    async rateUnhit(key) {
+      await RateHit.updateOne({ _id: key, hits: { $gt: 0 } }, { $inc: { hits: -1 } });
+    },
+
+    async rateReset(key) {
+      await RateHit.deleteOne({ _id: key });
     },
 
     async summary() {
