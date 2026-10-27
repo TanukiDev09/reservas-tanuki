@@ -10,6 +10,8 @@ if (env.DNS_SERVERS) dns.setServers(env.DNS_SERVERS.split(',').map((s) => s.trim
 export const config = {
   port: Number(env.PORT) || 3000,
   mongoUri: env.MONGODB_URI || 'mongodb://127.0.0.1:27017/avisos-tanuki',
+  // Vercel > Settings > Git > Deploy Hooks: al llamarlo se recompila y se refresca la lista de libros incrustada.
+  deployHook: env.VERCEL_DEPLOY_HOOK_URL || '',
   siteUrl: env.SITE_URL || '',
   adminUser: env.ADMIN_USER || '',
   adminPassword: env.ADMIN_PASSWORD || '',
@@ -19,7 +21,17 @@ export const config = {
   rateLimitMax: Number(env.RATE_LIMIT_MAX) || 8,
   rateLimitWindowMin: Number(env.RATE_LIMIT_WINDOW_MIN) || 60,
   trustProxy: env.TRUST_PROXY ? Number(env.TRUST_PROXY) || env.TRUST_PROXY : false,
+  // Firma de la cookie de sesión. Si no se define, se deriva de las credenciales: cambiar la contraseña cierra todas las sesiones.
+  sessionSecret: env.SESSION_SECRET || '',
+  sessionHours: Number(env.SESSION_HOURS) || 2,
 };
+
+// Una contraseña de ejemplo o corta deja /admin (y la lista de inscritos) a un intento de adivinarla.
+const WEAK = new Set(['cambia-esta-contrasena', 'admin', 'password', 'tanuki']);
+if (config.adminPassword && (config.adminPassword.length < 16 || WEAK.has(config.adminPassword.toLowerCase()))) {
+  console.error('ADMIN_PASSWORD es débil (mínimo 16 caracteres y distinta de la de ejemplo): /admin queda deshabilitado.');
+  config.adminPassword = '';
+}
 
 if (!config.adminUser || !config.adminPassword) {
   console.error('Falta ADMIN_USER o ADMIN_PASSWORD en .env: /admin queda deshabilitado.');

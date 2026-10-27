@@ -18,9 +18,39 @@ function validate(f) {
 const ORDER = ['name', 'city', 'email', 'phone', 'termsAccepted', 'dataAuthorized'];
 const plural = (n) => (n === 1 ? '1 libro elegido' : `${n} libros elegidos`);
 
+// Con señal floja el envío puede tardar o cortarse: se reintenta hasta 3 veces con tiempo límite.
+// Es seguro repetirlo: cada envío lleva un identificador y el servidor no guarda dos veces el mismo.
+async function postWithRetry(body, onRetry) {
+  const waits = [12000, 20000, 30000];
+  let lastError;
+  for (let i = 0; i < waits.length; i += 1) {
+    if (i > 0) {
+      onRetry(true);
+      await new Promise((r) => setTimeout(r, 1000 * i));
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), waits[i]);
+    try {
+      const res = await fetch('/api/signups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ctrl.signal });
+      const data = await res.json().catch(() => ({}));
+      if (res.status < 500 && res.status !== 429) return { res, data }; // éxito o error de validación: no se reintenta
+      lastError = new Error(`HTTP ${res.status}`);
+      if (res.status === 429) return { res, data };
+    } catch (e) {
+      lastError = e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastError;
+}
+
 export default function SignupForm() {
-  const [books, setBooks] = useState(null);
-  const [cfg, setCfg] = useState({ termsUrl: '#', privacyUrl: '#' });
+  // Los libros y los enlaces legales vienen incrustados en el HTML al compilar: se pintan al instante.
+  const seed = window.__DATA__;
+  const [books, setBooks] = useState(seed?.books?.length ? seed.books : null);
+  const [cfg, setCfg] = useState(seed?.config || { termsUrl: '#', privacyUrl: '#' });
+  const [retrying, setRetrying] = useState(false);
   const [f, setF] = useState(empty);
   const [errors, setErrors] = useState({});
   const [step, setStep] = useState(1);
@@ -29,17 +59,35 @@ export default function SignupForm() {
   const [sentEmail, setSentEmail] = useState('');
   const [loadError, setLoadError] = useState(false);
   const [formError, setFormError] = useState('');
+  const tokenRef = useRef(null); // token antispam del servidor (hora de carga del formulario)
   const doneRef = useRef(null);
   const headingRef = useRef(null);
   const firstRender = useRef(true);
 
+  // Se actualiza en segundo plano, sin bloquear nada. Además "calienta" la función y la base de datos
+  // para que el envío del formulario (minutos después) no pague el arranque en frío.
   useEffect(() => {
-    Promise.all([fetch('/api/books').then((r) => r.json()), fetch('/api/config').then((r) => r.json())])
-      .then(([b, c]) => {
-        setBooks(b);
-        setCfg(c);
+    let alive = true;
+    const refresh = () =>
+      Promise.all([fetch('/api/books').then((r) => r.json()), fetch('/api/config').then((r) => r.json())])
+        .then(([b, c]) => {
+          if (!alive || !Array.isArray(b)) return;
+          setBooks(b);
+          setCfg(c);
+        })
+        .catch(() => alive && !books && setLoadError(true));
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 300));
+    idle(refresh);
+    fetch('/api/form-token')
+      .then((r) => r.json())
+      .then((d) => {
+        tokenRef.current = d.token;
       })
-      .catch(() => setLoadError(true));
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // El botón "atrás" del celular vuelve al paso 1 sin perder lo escrito.
@@ -95,12 +143,11 @@ export default function SignupForm() {
 
     setSending(true);
     try {
-      const res = await fetch('/api/signups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(f),
-      });
-      const data = await res.json().catch(() => ({}));
+      const submissionId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      if (!tokenRef.current) {
+        tokenRef.current = await fetch('/api/form-token').then((r) => r.json()).then((d) => d.token).catch(() => null);
+      }
+      const { res, data } = await postWithRetry(JSON.stringify({ ...f, submissionId, formToken: tokenRef.current }), setRetrying);
       if (res.ok) {
         setSentName(f.name.trim().split(/\s+/)[0]);
         setSentEmail(f.email.trim());
@@ -117,6 +164,7 @@ export default function SignupForm() {
       setFormError('No pudimos conectarnos. Revisa tu internet e inténtalo de nuevo.');
     } finally {
       setSending(false);
+      setRetrying(false);
     }
   }
 
@@ -266,7 +314,7 @@ export default function SignupForm() {
 
           <div className="sticky-bar">
             <button className="btn" type="submit" disabled={sending}>
-              {sending ? 'Enviando…' : 'Avísame'}
+              {sending ? (retrying ? 'Reintentando…' : 'Enviando…') : 'Avísame'}
             </button>
           </div>
         </form>

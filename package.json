@@ -4,16 +4,21 @@
   "private": true,
   "description": "Avisos de disponibilidad de Tanuki Libros",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "concurrently -n api,web -c yellow,magenta \"node --watch server/index.js\" \"npm --prefix client run dev\"",
-    "build": "npm --prefix client install && npm --prefix client run build",
+    "snapshot": "node scripts/snapshot.mjs",
+    "build": "node scripts/snapshot.mjs && npm --prefix client install && npm --prefix client run build",
     "start": "node server/index.js",
     "seed": "node server/seed.js",
+    "drop-email-index": "node server/dropEmailIndex.js",
     "qr": "node scripts/qr.js",
     "postinstall": "npm --prefix client install"
   },
   "dependencies": {
+    "compression": "^1.8.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",

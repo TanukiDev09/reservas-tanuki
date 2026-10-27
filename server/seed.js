@@ -1,8 +1,6 @@
-import mongoose from 'mongoose';
-import { config } from './config.js';
+import { initStore, getRepo } from './db.js';
 import { seedBooks } from './booksSeed.js';
 
-await mongoose.connect(config.mongoUri);
-const created = await seedBooks();
-console.log(`Libros sembrados: ${created} nuevos.`);
-await mongoose.disconnect();
+await initStore();
+console.log(`Libros sembrados: ${await seedBooks(getRepo())} nuevos.`);
+process.exit(0);

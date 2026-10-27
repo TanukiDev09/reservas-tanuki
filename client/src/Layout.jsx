@@ -6,7 +6,7 @@ export default function Layout({ children, wide, admin }) {
       <a className="skip" href="#contenido">Saltar al contenido</a>
       <header className="site-header">
         <a href="https://tanukilibros.com" aria-label="Tanuki Libros">
-          <img src="/tanuki-logo.png" alt="Tanuki Libros" width="160" height="40" />
+          <img src="/tanuki-logo.webp" alt="Tanuki Libros" width="160" height="40" />
         </a>
         {admin && <span className="badge">Administración</span>}
       </header>
