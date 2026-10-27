@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const bookSchema = new mongoose.Schema(
+export const bookSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true, maxlength: 200, unique: true },
     author: { type: String, trim: true, maxlength: 120, default: '' },
@@ -11,5 +11,3 @@ const bookSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-export const Book = mongoose.model('Book', bookSchema);

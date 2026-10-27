@@ -2,8 +2,11 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import rateLimit from 'express-rate-limit';
 import { config } from '../config.js';
-import { Book } from '../models/Book.js';
-import { Signup } from '../models/Signup.js';
+import { getRepo } from '../db.js';
+import { booksCache } from '../cache.js';
+
+// El CDN (Vercel) guarda estas respuestas un rato: la mayoría de visitas no toca la base.
+export const cdn = (res, s) => res.set('Cache-Control', `public, s-maxage=${s}, stale-while-revalidate=600`);
 
 const router = Router();
 
@@ -11,12 +14,16 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE_RE = /^[0-9+()\-\s.]{7,25}$/;
 
 router.get('/config', (_req, res) => {
+  cdn(res, 300);
   res.json({ termsUrl: config.termsUrl, privacyUrl: config.privacyUrl });
 });
 
 router.get('/books', async (_req, res, next) => {
   try {
-    const books = await Book.find({ active: true }).sort({ order: 1, title: 1 }).select('title author cover color');
+    const rows = await getRepo().listBooks({ activeOnly: true });
+    const books = rows.map(({ _id, title, author, cover, color }) => ({ _id, title, author, cover, color }));
+    booksCache.set(books);
+    cdn(res, 60);
     res.json(books);
   } catch (e) {
     next(e);
@@ -59,31 +66,26 @@ router.post('/signups', signupLimiter, async (req, res, next) => {
     if (b.dataAuthorized !== true) errors.dataAuthorized = 'Necesitamos tu autorización para avisarte.';
     if (Object.keys(errors).length) return res.status(400).json({ errors });
 
-    const valid = await Book.find({ _id: { $in: ids }, active: true }).select('_id');
+    const repo = getRepo();
+    const valid = await repo.activeBookIds(ids);
     if (!valid.length) {
       return res.status(400).json({ errors: { books: 'Esos libros ya no están en la lista. Elige de nuevo.' } });
     }
 
     // Si el correo ya existe: actualiza datos, suma libros nuevos y renueva la autorización.
-    await Signup.updateOne(
-      { email },
-      {
-        $set: {
-          name,
-          city,
-          phone,
-          consent: {
-            termsAccepted: true,
-            dataAuthorized: true,
-            textVersion: config.authTextVersion,
-            acceptedAt: new Date(),
-          },
-        },
-        $addToSet: { books: { $each: valid.map((v) => v._id) } },
-        $setOnInsert: { email },
+    await repo.upsertSignup({
+      name,
+      city,
+      email,
+      phone,
+      bookIds: valid,
+      consent: {
+        termsAccepted: true,
+        dataAuthorized: true,
+        textVersion: config.authTextVersion,
+        acceptedAt: new Date(),
       },
-      { upsert: true }
-    );
+    });
 
     res.json({ ok: true });
   } catch (e) {
